@@ -38,7 +38,7 @@ class BaseCharLCD(object):
 
     # Init, setup, teardown
 
-    def __init__(self, cols=20, rows=4, dotsize=8, charmap='A02', auto_linebreaks=True):
+    def __init__(self, cols=20, rows=4, dotsize=8, charmap='A02', auto_linebreaks=True, cache_text=True):
         """
         Character LCD controller. Base class only, you should use a subclass.
 
@@ -72,6 +72,8 @@ class BaseCharLCD(object):
         else:
             raise ValueError(
                 'The ``charmap`` argument must be either ``A00`` or ``A02`` or ``ST0B``')
+
+        self.cache_text = cache_text
 
         # LCD configuration
         self.lcd = LCDConfig(rows=rows, cols=cols, dotsize=dotsize)
@@ -388,52 +390,35 @@ class BaseCharLCD(object):
 
         # Write byte if changed
         try:
-            if self._content[row][col] != value:
+            if self.cache_text and self._content[row][col] == value:
+                changed = False
+            else:
                 self._send_data(value)
                 self._content[row][col] = value  # Update content cache
-                unchanged = False
-            else:
-                unchanged = True
+                changed = True
         except IndexError as e:
             # Position out of range
-            if self.auto_linebreaks is True:
+            if self.auto_linebreaks:
                 raise e
             self._send_data(value)
-            unchanged = False
+            changed = True
+
+        initial_col = 0 if self.text_align_mode == 'left' else self.lcd.cols - 1
+        move_by = 1 if self.text_align_mode == 'left' else -1
 
         # Update cursor position.
-        if self.text_align_mode == 'left':
-            if self.auto_linebreaks is False or col < self.lcd.cols - 1:
-                # No newline, update internal pointer
-                newpos = (row, col + 1)
-                if unchanged:
-                    self.cursor_pos = newpos
-                else:
-                    self._cursor_pos = newpos
-                self.recent_auto_linebreak = False
-            else:
-                # Newline, reset pointer
-                if row < self.lcd.rows - 1:
-                    self.cursor_pos = (row + 1, 0)
-                else:
-                    self.cursor_pos = (0, 0)
-                self.recent_auto_linebreak = True
+        if self.auto_linebreaks and col + move_by not in range(0, self.lcd.cols):
+            # Newline, reset pointer
+            self.cursor_pos = ((row + 1) % self.lcd.rows, initial_col)
+            self.recent_auto_linebreak = True
         else:
-            if self.auto_linebreaks is False or col > 0:
-                # No newline, update internal pointer
-                newpos = (row, col - 1)
-                if unchanged:
-                    self.cursor_pos = newpos
-                else:
-                    self._cursor_pos = newpos
-                self.recent_auto_linebreak = False
+            # No newline, update internal pointer
+            new_pos = (row, col + move_by)
+            if changed:
+                self._cursor_pos = new_pos
             else:
-                # Newline, reset pointer
-                if row < self.lcd.rows - 1:
-                    self.cursor_pos = (row + 1, self.lcd.cols - 1)
-                else:
-                    self.cursor_pos = (0, self.lcd.cols - 1)
-                self.recent_auto_linebreak = True
+                self.cursor_pos = new_pos
+            self.recent_auto_linebreak = False
 
     def cr(self):  # type: () -> None
         """Write a carriage return (``\\r``) character to the LCD."""

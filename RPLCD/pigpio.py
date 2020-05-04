@@ -63,7 +63,8 @@ class CharLCD(BaseCharLCD):
                        charmap='A02',
                        auto_linebreaks=True,
                        compat_mode=False,
-                       compat_mode_wait_time=0.001):
+                       compat_mode_wait_time=0.001,
+                       cache_text=True):
         """
         Character LCD controller.
 
@@ -174,7 +175,8 @@ class CharLCD(BaseCharLCD):
         # Call superclass
         super(CharLCD, self).__init__(cols, rows, dotsize,
                                       charmap=charmap,
-                                      auto_linebreaks=auto_linebreaks)
+                                      auto_linebreaks=auto_linebreaks,
+                                      cache_text=cache_text)
 
         # Set backlight status
         if pin_backlight is not None:
