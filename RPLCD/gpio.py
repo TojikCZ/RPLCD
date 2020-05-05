@@ -46,7 +46,8 @@ class CharLCD(BaseCharLCD):
                        cols=20, rows=4, dotsize=8,
                        charmap='A02',
                        auto_linebreaks=True,
-                       compat_mode=False):
+                       compat_mode=False,
+                       compat_mode_wait_time=0.001):
         """
         Character LCD controller.
 
@@ -94,6 +95,9 @@ class CharLCD(BaseCharLCD):
         :param compat_mode: Whether to run additional checks to support older LCDs
             that may not run at the reference clock (or keep up with it).
         :type compat_mode: bool
+        :param compat_mode_wait_time: Minimum time to pass between sends.
+            if zero, turns off compat_mode  Default: ``0.001`` seconds.
+        :type compat_mode_wait_time: float
 
         """
 
@@ -130,7 +134,8 @@ class CharLCD(BaseCharLCD):
         super(CharLCD, self).__init__(cols, rows, dotsize,
                                       charmap=charmap,
                                       auto_linebreaks=auto_linebreaks,
-                                      compat_mode=compat_mode)
+                                      compat_mode=compat_mode,
+                                      compat_mode_wait_time=compat_mode_wait_time)
 
         # Set backlight status
         if pin_backlight is not None:

@@ -32,9 +32,7 @@ if sys.version_info.major < 3:
     from time import clock as now
 else:
     from time import perf_counter as now
-
-# Duration to rate-limit calls to _send
-COMPAT_MODE_WAIT_TIME = 0.001
+from time import sleep
 
 LCDConfig = namedtuple('LCDConfig', 'rows cols dotsize')
 
@@ -45,7 +43,8 @@ class BaseCharLCD(object):
 
     # Init, setup, teardown
 
-    def __init__(self, cols=20, rows=4, dotsize=8, charmap='A02', auto_linebreaks=True, compat_mode=False):
+    def __init__(self, cols=20, rows=4, dotsize=8, charmap='A02', auto_linebreaks=True, compat_mode=False,
+                 compat_mode_wait_time=0.001):
         """
         Character LCD controller. Base class only, you should use a subclass.
 
@@ -63,9 +62,21 @@ class BaseCharLCD(object):
             auto_linebreaks:
                 Whether or not to automatically insert line breaks.
                 Default: True.
-
+            compat_mode:
+                Whether to run additional checks to support older LCDs
+                that may not run at the reference clock (or keep up with it).
+                Default: False
+            compat_mode_wait_time: Minimum time to pass between sends.
+                if zero, turns off compat_mode
+                Default: ``0.001`` seconds.
         """
         assert dotsize in [8, 10], 'The ``dotsize`` argument should be either 8 or 10.'
+
+        # Configure compatibility mode
+        self.compat_mode = compat_mode and compat_mode_wait_time > 0
+        self.compat_mode_wait_time = compat_mode_wait_time
+        if compat_mode:
+            self.last_send_event = now()
 
         # Initialize codec
         if charmap == 'A00':
@@ -145,11 +156,6 @@ class BaseCharLCD(object):
         self._cursor_pos = (0, 0)
         self.command(c.LCD_ENTRYMODESET | self._text_align_mode | self._display_shift_mode)
         c.usleep(50)
-
-        # Configure compatibility mode
-        self.compat_mode = compat_mode
-        if compat_mode:
-            self.last_send_event = now()
 
     def close(self, clear=False):
         if clear:
@@ -255,9 +261,10 @@ class BaseCharLCD(object):
 
     def _wait(self):
         """Rate limit the number of send events."""
-        end = self.last_send_event + COMPAT_MODE_WAIT_TIME
-        while now() < end:
-            pass
+        end = self.last_send_event + self.compat_mode_wait_time
+        sleep_duration = end - now()
+        if sleep_duration > 0:
+            sleep(sleep_duration)
 
     # High level commands
 
